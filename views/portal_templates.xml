@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="portal_my_home_maintenance_requests"
+              name="Portal Maintenance Requests"
+              customize_show="True"
+              inherit_id="portal.portal_my_home"
+              priority="40">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="before">
+            <t t-set="portal_service_category_enable" t-value="True"/>
+        </xpath>
+        <div id="portal_service_category" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">Maintenance Requests</t>
+                <t t-set="text">Create and track maintenance tickets from portal</t>
+                <t t-set="url" t-value="'/my/maintenance-requests'"/>
+                <t t-set="placeholder_count" t-value="'maintenance_request_count'"/>
+            </t>
+        </div>
+    </template>
+
+    <template id="portal_breadcrumbs_maintenance_requests"
+              name="Portal Maintenance Request Breadcrumbs"
+              inherit_id="portal.portal_breadcrumbs">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'maintenance_requests'"
+                class="breadcrumb-item active">
+                Maintenance Requests
+            </li>
+            <li t-if="page_name in ('maintenance_request_new', 'maintenance_request')"
+                class="breadcrumb-item">
+                <a href="/my/maintenance-requests">Maintenance Requests</a>
+            </li>
+            <li t-if="page_name == 'maintenance_request_new'"
+                class="breadcrumb-item active">
+                New Request
+            </li>
+            <li t-if="page_name == 'maintenance_request' and maintenance_request"
+                class="breadcrumb-item active">
+                <t t-out="maintenance_request.name"/>
+            </li>
+        </xpath>
+    </template>
+
+    <template id="portal_my_maintenance_requests" name="My Maintenance Requests">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Maintenance Requests</t>
+                <div class="ms-lg-2">
+                    <a href="/my/maintenance-requests/new" class="btn btn-primary">
+                        <i class="fa fa-plus me-1"/> New Request
+                    </a>
+                </div>
+            </t>
+
+            <t t-if="not maintenance_requests">
+                <div class="alert alert-warning" role="alert">
+                    You do not have any maintenance requests yet.
+                </div>
+            </t>
+            <t t-else="">
+                <t t-call="portal.portal_table">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">Reference</th>
+                            <th>Subject</th>
+                            <th style="width: 170px;">Request Date</th>
+                            <th style="width: 170px;">Stage</th>
+                            <th style="width: 140px;">Priority</th>
+                            <th style="width: 130px;" class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <t t-foreach="grouped_requests" t-as="request_group">
+                        <tbody>
+                            <tr t-if="groupby != 'none' and request_group['label']" class="table-light">
+                                <th colspan="6" class="fw-semibold">
+                                    <t t-out="request_group['label']"/>
+                                </th>
+                            </tr>
+                            <t t-foreach="request_group['records']" t-as="maintenance_request">
+                                <tr>
+                                    <td>#<span t-out="maintenance_request.id"/></td>
+                                    <td>
+                                        <a t-attf-href="/my/maintenance-requests/#{maintenance_request.id}">
+                                            <span t-out="maintenance_request.name"/>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span t-field="maintenance_request.request_date" t-options="{'widget': 'date'}"/>
+                                    </td>
+                                    <td>
+                                        <span t-out="maintenance_request.sudo().stage_id.display_name or '-'"/>
+                                    </td>
+                                    <td>
+                                        <span t-out="priority_label_map.get(maintenance_request.priority or '0', '-')"/>
+                                    </td>
+                                    <td class="text-center">
+                                        <span t-if="maintenance_request.archive" class="badge text-bg-warning">Cancelled</span>
+                                        <span t-elif="maintenance_request.sudo().stage_id.done" class="badge text-bg-success">Done</span>
+                                        <span t-else="" class="badge text-bg-info">Open</span>
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </t>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="portal_maintenance_request_create" name="Create Maintenance Request">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+
+            <div class="row justify-content-center">
+                <div class="col-12 col-lg-9">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-100">
+                            <h4 class="mb-0">Create Maintenance Request</h4>
+                        </div>
+                        <div class="card-body">
+                            <div t-if="form_errors" class="alert alert-danger" role="alert">
+                                <ul class="mb-0 ps-3">
+                                    <li t-foreach="form_errors" t-as="form_error">
+                                        <t t-out="form_error"/>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <form method="POST" action="/my/maintenance-requests/create">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Subject</label>
+                                    <input type="text" name="name" class="form-control"
+                                           t-att-value="form_data.get('name')" required="required"
+                                           placeholder="e.g. Air conditioner is not cooling"/>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Equipment</label>
+                                        <select name="equipment_id" class="form-select">
+                                            <option value="">Select equipment</option>
+                                            <t t-foreach="equipment_options" t-as="equipment">
+                                                <option t-att-value="equipment.id"
+                                                        t-att-selected="'selected' if form_data.get('equipment_id') == equipment.id else None">
+                                                    <t t-out="equipment.display_name"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Type</label>
+                                        <select name="maintenance_type" class="form-select" required="required">
+                                            <t t-foreach="maintenance_type_options" t-as="maintenance_type">
+                                                <option t-att-value="maintenance_type[0]"
+                                                        t-att-selected="'selected' if form_data.get('maintenance_type') == maintenance_type[0] else None">
+                                                    <t t-out="maintenance_type[1]"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Priority</label>
+                                        <select name="priority" class="form-select" required="required">
+                                            <t t-foreach="priority_options" t-as="priority">
+                                                <option t-att-value="priority[0]"
+                                                        t-att-selected="'selected' if form_data.get('priority') == priority[0] else None">
+                                                    <t t-out="priority[1]"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="form-label">Description</label>
+                                    <textarea name="description" rows="6" class="form-control"
+                                              placeholder="Explain the issue in detail"><t t-out="form_data.get('description')"/></textarea>
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2 mt-4">
+                                    <a href="/my/maintenance-requests" class="btn btn-light border">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fa fa-check me-1"/> Submit Request
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="portal_maintenance_request_page" name="Maintenance Request Detail">
+        <t t-call="portal.portal_layout">
+
+            <div t-if="success_message" class="alert alert-success" role="alert">
+                <t t-out="success_message"/>
+            </div>
+
+            <div t-if="form_errors" class="alert alert-danger" role="alert">
+                <ul class="mb-0 ps-3">
+                    <li t-foreach="form_errors" t-as="form_error">
+                        <t t-out="form_error"/>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-100 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h4 class="mb-0">
+                        <span t-out="maintenance_request.name"/>
+                        <small class="text-muted">(#<span t-out="maintenance_request.id"/>)</small>
+                    </h4>
+                    <div>
+                        <span t-if="maintenance_request.archive" class="badge text-bg-warning">Cancelled</span>
+                        <span t-elif="maintenance_request.sudo().stage_id.done" class="badge text-bg-success">Done</span>
+                        <span t-else="" class="badge text-bg-info">Open</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <strong>Stage:</strong>
+                            <div><span t-out="maintenance_request.sudo().stage_id.display_name or '-'"/></div>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Request Date:</strong>
+                            <div><span t-field="maintenance_request.request_date" t-options="{'widget': 'date'}"/></div>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Priority:</strong>
+                            <div><span t-out="priority_label_map.get(maintenance_request.priority or '0', '-')"/></div>
+                        </div>
+                        <div class="col-md-4">
+                            <strong>Type:</strong>
+                            <div><span t-out="maintenance_type_label_map.get(maintenance_request.maintenance_type, '-')"/></div>
+                        </div>
+                        <div class="col-md-8">
+                            <strong>Equipment:</strong>
+                            <div><span t-out="maintenance_request.sudo().equipment_id.display_name or '-'"/></div>
+                        </div>
+                    </div>
+
+                    <div t-if="maintenance_request.description">
+                        <h5 class="mb-2">Details</h5>
+                        <div class="py-2 px-3 rounded bg-100" t-field="maintenance_request.description"/>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="can_edit_request" class="mb-4">
+                <button class="btn btn-outline-primary" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#updateMaintenanceRequestForm">
+                    <i class="fa fa-pencil me-1"/> Update This Request
+                </button>
+
+                <div id="updateMaintenanceRequestForm" class="collapse mt-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-100">
+                            <h5 class="mb-0">Update Maintenance Request</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST"
+                                  t-attf-action="/my/maintenance-requests/#{maintenance_request.id}/update">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Subject</label>
+                                    <input type="text" name="name" class="form-control"
+                                           t-att-value="form_data.get('name')" required="required"/>
+                                </div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Equipment</label>
+                                        <select name="equipment_id" class="form-select">
+                                            <option value="">Select equipment</option>
+                                            <t t-foreach="equipment_options" t-as="equipment">
+                                                <option t-att-value="equipment.id"
+                                                        t-att-selected="'selected' if form_data.get('equipment_id') == equipment.id else None">
+                                                    <t t-out="equipment.display_name"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Type</label>
+                                        <select name="maintenance_type" class="form-select" required="required">
+                                            <t t-foreach="maintenance_type_options" t-as="maintenance_type">
+                                                <option t-att-value="maintenance_type[0]"
+                                                        t-att-selected="'selected' if form_data.get('maintenance_type') == maintenance_type[0] else None">
+                                                    <t t-out="maintenance_type[1]"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Priority</label>
+                                        <select name="priority" class="form-select" required="required">
+                                            <t t-foreach="priority_options" t-as="priority">
+                                                <option t-att-value="priority[0]"
+                                                        t-att-selected="'selected' if form_data.get('priority') == priority[0] else None">
+                                                    <t t-out="priority[1]"/>
+                                                </option>
+                                            </t>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="form-label">Description</label>
+                                    <textarea name="description" rows="6" class="form-control"><t t-out="form_data.get('description')"/></textarea>
+                                </div>
+
+                                <div class="text-end mt-4">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fa fa-save me-1"/> Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="maintenance_request_chat" class="mt-4">
+                <h4 class="mb-3">Internal Discussion</h4>
+                <t t-call="portal.message_thread"/>
+            </div>
+        </t>
+    </template>
+
+</odoo>

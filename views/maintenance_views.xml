@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="maintenance_request_view_form_inherit_portal_request" model="ir.ui.view">
+        <field name="name">maintenance.request.view.form.inherit.portal.request</field>
+        <field name="model">maintenance.request</field>
+        <field name="inherit_id" ref="maintenance.hr_equipment_request_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='owner_user_id']" position="after">
+                <field name="is_portal_request" readonly="1"/>
+                <field name="portal_user_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="maintenance_request_view_search_inherit_portal_request" model="ir.ui.view">
+        <field name="name">maintenance.request.view.search.inherit.portal.request</field>
+        <field name="model">maintenance.request</field>
+        <field name="inherit_id" ref="maintenance.hr_equipment_request_view_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='todo']" position="after">
+                <filter string="Portal Requests" name="portal_requests" domain="[('is_portal_request', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
